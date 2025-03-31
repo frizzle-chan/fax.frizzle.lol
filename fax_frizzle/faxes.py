@@ -6,7 +6,7 @@ import requests
 from cachetools import TTLCache, cached
 from discord import Message
 from escpos.escpos import Escpos
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 @cached(cache=TTLCache(maxsize=10, ttl=60 * 60 * 24))
@@ -21,13 +21,16 @@ def download_avatar(avatar_url: str) -> Image.Image:
 
     response = requests.get(avatar_url)
     response.raise_for_status()
-    return Image.open(BytesIO(response.content))
+    img = Image.open(BytesIO(response.content))
+    img.thumbnail((150, 150))
+    return img
 
 
-def download_attachment(url: str) -> Image.Image:
+def download_attachment_image(url: str) -> Image.Image:
     response = requests.get(url)
     response.raise_for_status()
-    return Image.open(BytesIO(response.content))
+    img = Image.open(BytesIO(response.content))
+    return ImageOps.contain(img, (512, 512))
 
 
 # ASCII only
@@ -44,7 +47,7 @@ def send_fax(printer: Escpos, message: Message) -> None:
         .format('ddd, MMM Do, YYYY h:mmA')
 
     msg = _safe(message.content)
-    msg = re.sub(r'^\$fax\s+', '', msg, flags=re.IGNORECASE)
+    msg = re.sub(r'^\$fax ?', '', msg, flags=re.IGNORECASE)
 
     printer.textln()
     if message.author.avatar:
@@ -63,8 +66,7 @@ def send_fax(printer: Escpos, message: Message) -> None:
     for attachment in message.attachments:
         if attachment.content_type == 'image/png' or \
                 attachment.content_type == 'image/jpeg':
-            image = download_attachment(attachment.url)
-            image = image.resize((300, 300))
+            image = download_attachment_image(attachment.url)
             printer.image(image, center=True)
             printer.textln()
     printer.cut()
