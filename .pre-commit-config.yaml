@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      - id: autopep8
+        name: autopep8
+        description: A tool that automatically formats Python code to conform to the PEP 8 style guide.
+        entry: poetry run autopep8
+        language: system
+        types: [python]
+        args: [-i]
+      - id: flake8
+        name: flake8
+        description: "`flake8` is a command-line utility for enforcing style consistency across Python projects."
+        entry: poetry run flake8
+        language: system
+        types: [python]
+        require_serial: true
+      - id: isort
+        name: isort
+        entry: poetry run isort
+        stages: [pre-commit, pre-merge-commit, pre-push, manual]
+        require_serial: true
+        language: system
+        types_or: [cython, pyi, python]
+        args: ["--filter-files"]
+        minimum_pre_commit_version: "3.2.0"

@@ -1,5 +1,7 @@
 import os
+
 from dotenv import load_dotenv
+
 from fax_frizzle import run
 
 load_dotenv()
