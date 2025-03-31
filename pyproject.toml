@@ -9,10 +9,12 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "discord-py (>=2.5.2,<3.0.0)",
+    "python-dotenv (>=1.0.1,<2.0.0)"
 ]
 
 [tool.poetry]
-packages = [{include = "fax"}]
+packages = [{include = "fax_frizzle"}]
 
 
 [build-system]
