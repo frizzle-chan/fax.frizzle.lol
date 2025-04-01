@@ -13,7 +13,7 @@ def make_bot(printer: Escpos) -> discord.Client:
 
     client = discord.Client(intents=intents)
     allowed_contexts = discord.app_commands.AppCommandContext(guild=True,
-                                                              dm_channel=True,
+                                                              dm_channel=False,
                                                               private_channel=True)
     tree = discord.app_commands.CommandTree(client,
                                             allowed_contexts=allowed_contexts)
