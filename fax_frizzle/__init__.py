@@ -57,13 +57,17 @@ def make_bot(printer: Escpos) -> discord.Client:
 
     @tree.command(description="Send a fax!")
     async def fax(interaction: discord.Interaction, text: str):
-        await send_fax(printer,
-                       user=interaction.user,
-                       ts=interaction.created_at,
-                       text=text)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] Received fax command from {interaction.user.name}")
-        await interaction.response.send_message("Fax sent!", ephemeral=True)
+        try:
+            await send_fax(printer,
+                           user=interaction.user,
+                           ts=interaction.created_at,
+                           text=text)
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{timestamp}] Received fax command from {interaction.user.name}")
+            await interaction.response.send_message("Fax sent ✅", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message("Fax failed ❌. Go tell frizzle to fix it!!", ephemeral=True)
+            raise e
 
     return client
 
