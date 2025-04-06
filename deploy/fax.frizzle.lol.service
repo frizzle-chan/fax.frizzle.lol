@@ -9,7 +9,7 @@ TimeoutStartSec=0
 Restart=always
 ExecStartPre=/usr/bin/docker pull ghcr.io/frizzle-chan/fax.frizzle.lol:main
 ExecStart=/usr/bin/docker run --rm --name fax.frizzle.lol \
---env-file=/var/run/fax.frizzle.lol/.env \
+--env-file=/etc/fax.frizzle.lol/.env \
 ghcr.io/frizzle-chan/fax.frizzle.lol:main
 
 [Install]
