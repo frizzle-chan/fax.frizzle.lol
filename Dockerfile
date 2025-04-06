@@ -26,6 +26,8 @@ RUN poetry install --only main
 
 FROM base AS production
 
+LABEL org.opencontainers.image.source=https://github.com/frizzle-chan/fax.frizzle.lol
+
 COPY . .
 
 ENTRYPOINT [ "python", "bot.py" ]
