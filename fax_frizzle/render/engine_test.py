@@ -15,7 +15,7 @@ def test_render_fax(image_regression):
     img = render_fax(width=512,
                       fax=Fax(user_name="Test User",
                               user_avatar=Image.open(current_dir / "../img/question.png"),
-                              text="Hello World",
+                              text="Hello World 😊 👀 😂 🌚 日本語",
                               ts=arrow.get('2013-05-11T21:23:58.970460+07:00').datetime,
                               image_attachments=[]))
     stream = BytesIO()
