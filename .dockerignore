@@ -5,3 +5,5 @@
 !bot.py
 !poetry.lock
 !pyproject.toml
+
+!.devcontainer/starship.toml
