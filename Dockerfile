@@ -28,6 +28,8 @@ FROM base AS production
 
 COPY . .
 
+ENTRYPOINT [ "python", "bot.py" ]
+
 FROM base AS development
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
