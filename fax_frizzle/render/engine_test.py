@@ -10,12 +10,30 @@ from pathlib import Path
 # Get the directory where the current file is located
 current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
-def test_render_fax(image_regression):
+def test_render_simple_fax(image_regression):
     # Create the image
     img = render_fax(width=512,
                       fax=Fax(user_name="Test User",
                               user_avatar=Image.open(current_dir / "../img/question.png"),
                               text="Hello World 😊 👀 😂 🌚 日本語",
+                              ts=arrow.get('2013-05-11T21:23:58.970460+07:00').datetime,
+                              image_attachments=[]))
+    stream = BytesIO()
+    img.save(stream, "PNG")
+    image_regression.check(stream.getvalue())
+
+def test_render_multiline_fax(image_regression):
+    # Create the image
+    img = render_fax(width=512,
+                      fax=Fax(user_name="frizzle✨",
+                              user_avatar=Image.open(current_dir / "../img/question.png"),
+                              text="""This is a test of the multiline fax rendering.
+It should be able to handle multiple lines of text and render them correctly on the image.
+
+This is the second paragraph of the test. It should also be rendered correctly.
+This is the third paragraph of the test. It should be rendered correctly as well.
+This is the fourth paragraph of the test. It should be rendered correctly as well.
+""",
                               ts=arrow.get('2013-05-11T21:23:58.970460+07:00').datetime,
                               image_attachments=[]))
     stream = BytesIO()

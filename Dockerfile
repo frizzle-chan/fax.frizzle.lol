@@ -3,7 +3,9 @@ FROM docker.io/python:3.13.2-bookworm AS base
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN mkdir -p /usr/share/fonts/truetype/unifontex \
- && curl -sSL -o unifontex.ttf https://github.com/stgiga/UnifontEX/releases/download/15.1jan23morePona/UnifontExMono.ttf
+ && curl -sSL \
+        -o /usr/share/fonts/truetype/unifontex/unifontex.ttf \
+        https://github.com/stgiga/UnifontEX/releases/download/15.1jan23morePona/UnifontExMono.ttf
 
 # Create a non-root user named fax and switch to it
 RUN useradd -ms /bin/bash frizzle
