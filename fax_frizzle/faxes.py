@@ -72,8 +72,8 @@ async def send_fax(printer: Escpos,
             printer.textln()
             printer.textln(fax.text)
             printer.textln()
-            for attachment in fax.image_attachments:
-                printer.image(attachment, center=True)
+            for img in fax.image_attachments:
+                printer.image(img, center=True)
                 printer.textln()
             printer.cut()
         finally:
