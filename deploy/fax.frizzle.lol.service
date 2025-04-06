@@ -1,0 +1,16 @@
+# /etc/systemd/system/fax.frizzle.lol.service
+[Unit]
+Description=fax.frizzle.lol
+After=docker.service
+Requires=docker.service
+
+[Service]
+TimeoutStartSec=0
+Restart=always
+ExecStartPre=/usr/bin/docker pull ghcr.io/frizzle-chan/fax.frizzle.lol:main
+ExecStart=/usr/bin/docker run --rm --name fax.frizzle.lol \
+--env-file=/var/run/fax.frizzle.lol/.env \
+ghcr.io/frizzle-chan/fax.frizzle.lol:main
+
+[Install]
+WantedBy=default.target
