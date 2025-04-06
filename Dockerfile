@@ -32,26 +32,26 @@ FROM base AS development
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# hadolint ignore=DL3002
 USER root
 
 ENV PATH=/home/frizzle/.local/bin:$PATH
 
 # Install gh, vim
-RUN mkdir -p -m 755 /etc/apt/keyrings \
- && out="$(mktemp)" \
- && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
- && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+# hadolint ignore=DL3008,DL3015,SC2016
+RUN curl -sS -o "/etc/apt/keyrings/githubcli-archive-keyring.gpg" https://cli.github.com/packages/githubcli-archive-keyring.gpg \
  && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
- && apt update \
- && apt install -y \
+ && apt-get update \
+ && apt-get install -y \
         gh \
         vim \
- && rm -rf /var/lib/apt/lists/* \
- && rm $out
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
 # Configure shell
 COPY .devcontainer/starship.toml /root/.config/starship.toml
+# hadolint ignore=SC2016
 RUN curl -sS -o /tmp/install-starship.sh https://starship.rs/install.sh \
  && sh /tmp/install-starship.sh --yes \
  && rm /tmp/install-starship.sh \

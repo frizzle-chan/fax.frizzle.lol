@@ -31,3 +31,10 @@ repos:
         require_serial: true
         language: system
         types_or: [cython, pyi, python]
+      - id: hadolint
+        name: hadolint
+        entry: ./bin/hadolint
+        stages: [pre-commit, pre-merge-commit, pre-push, manual]
+        require_serial: true
+        language: system
+        types_or: [dockerfile]
