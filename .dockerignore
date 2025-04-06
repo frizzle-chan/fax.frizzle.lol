@@ -1,0 +1,7 @@
+*
+
+!fax_frizzle
+!fax_frizzle/**/*
+!bot.py
+!poetry.lock
+!pyproject.toml
