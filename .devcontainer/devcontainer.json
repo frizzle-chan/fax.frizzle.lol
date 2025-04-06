@@ -17,7 +17,8 @@
       "extensions": [
         "ms-python.python",
         "ms-python.isort",
-        "ms-python.autopep8"
+        "ms-python.autopep8",
+        "github.vscode-github-actions"
       ]
     }
   }
