@@ -10,5 +10,14 @@
   "features": {
     "ghcr.io/devcontainers-extra/features/poetry:2": {},
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.isort",
+        "ms-python.autopep8"
+      ]
+    }
   }
 }
