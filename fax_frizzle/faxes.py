@@ -1,15 +1,15 @@
 import asyncio
-import re
 from datetime import datetime
 from io import BytesIO
 from typing import List, Optional, Union
 
-import arrow
 import requests
 from cachetools import TTLCache, cached
 from discord import Attachment, Member, User
 from escpos.escpos import Escpos
 from PIL import Image, ImageOps
+
+from fax_frizzle.fax import Fax
 
 lock = asyncio.Lock()
 
@@ -38,52 +38,43 @@ def download_attachment_image(url: str) -> Image.Image:
     return ImageOps.contain(img, (512, 512))
 
 
-# ASCII only
-_printable_pattern = re.compile(r'[^\x00-\x7F]+', flags=re.UNICODE)
-
-
-def _safe(text: str) -> str:
-    return _printable_pattern.sub('_', text)
-
-
 async def send_fax(printer: Escpos,
                    user: Union[User, Member],
                    text: str,
                    ts: datetime,
                    attachments: Optional[List[Attachment]] = None) -> None:
-    if attachments is None:
-        attachments = []
+    if user.avatar:
+        avatar = download_avatar(user.avatar.url)
+        avatar = avatar.resize((150, 150))
+    else:
+        avatar = Image.open("img/question.png")
 
-    human_date = arrow.get(ts)\
-        .to('local')\
-        .format('ddd, MMM Do, YYYY h:mmA')
-
-    safe_text = _safe(text)
-    safe_text = re.sub(r'^\$fax ?', '', safe_text, flags=re.IGNORECASE)
+    image_attachments = []
+    if attachments:
+        for attachment in attachments:
+            if attachment.content_type == 'image/png' or \
+                    attachment.content_type == 'image/jpeg':
+                image_attachments.append(download_attachment_image(attachment.url))
+    fax = Fax(user_name=user.name, user_avatar=avatar, text=text, ts=ts, image_attachments=image_attachments)
 
     async with lock:
         try:
             printer.open()
             printer.textln()
             if user.avatar:
-                avatar = download_avatar(user.avatar.url)
-                avatar = avatar.resize((150, 150))
-                printer.image(avatar, center=True)
+                printer.image(fax.user_avatar, center=True)
                 printer.textln()
             printer.set(bold=True, font='b', align='center')
-            printer.textln(_safe(user.name))
+            printer.textln(fax.user_name)
             printer.set(bold=False)
-            printer.textln(human_date)
+            printer.textln(fax.human_ts)
             printer.set(bold=False, font='a', align='left')
             printer.textln()
-            printer.textln(safe_text)
+            printer.textln(fax.text)
             printer.textln()
-            for attachment in attachments:
-                if attachment.content_type == 'image/png' or \
-                        attachment.content_type == 'image/jpeg':
-                    image = download_attachment_image(attachment.url)
-                    printer.image(image, center=True)
-                    printer.textln()
+            for attachment in fax.image_attachments:
+                printer.image(attachment, center=True)
+                printer.textln()
             printer.cut()
         finally:
             printer.close()
