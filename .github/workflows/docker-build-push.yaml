@@ -1,13 +1,27 @@
 name: Build and Push Docker Image
 
 on:
-  pull_request: {}
+  pull_request:
+    paths:
+      - .github/workflows/docker-build-push.yaml
+      - Dockerfile
+      - .dockerignore
+      - poetry.lock
+      - pyproject.toml
+      - '**/*.py'
   push:
     branches:
       - main
       - docker-build
     tags:
       - 'v*'
+    paths:
+      - .github/workflows/docker-build-push.yaml
+      - Dockerfile
+      - .dockerignore
+      - poetry.lock
+      - pyproject.toml
+      - '**/*.py'
   workflow_dispatch:
 
 env:
