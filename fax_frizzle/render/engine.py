@@ -94,11 +94,10 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
         img_copy = img.copy()
         if img_copy.size[0] > width:
             img_copy.thumbnail((width, sys.maxsize))
-        img_attachement_tile = Image.new('RGB', (width, img_copy.height), color=(255, 255, 255))
-        img_attachement_tile.paste(img_copy, ((width // 2) - (img_copy.width // 2), 0), mask=img_copy if img_copy.mode == 'RGBA' else None)
+        img_attachment_tile = Image.new('RGB', (width, img_copy.height), color=(255, 255, 255))
+        img_attachment_tile.paste(img_copy, ((width // 2) - (img_copy.width // 2), 0), mask=img_copy if img_copy.mode == 'RGBA' else None)
 
-        tiles.append(img_attachement_tile)
-
+        tiles.append(img_attachment_tile)
     tiles.append(v_padding)
 
     final_height = sum(tile.height if isinstance(tile, Image.Image) else tile for tile in tiles)
