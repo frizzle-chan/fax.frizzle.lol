@@ -1,9 +1,11 @@
 from datetime import datetime
+from io import BytesIO
 
+import arrow
 import discord
 from escpos.escpos import Escpos
 
-from fax_frizzle.faxes import send_fax
+from fax_frizzle.faxes import convert_fax_to_preview, send_fax
 from fax_frizzle.util import is_owner
 
 
@@ -43,14 +45,20 @@ def make_bot(printer: Escpos) -> discord.Client:
 
         try:
             await message.add_reaction('🖨')
-            await send_fax(printer,
-                           user=message.author,
-                           ts=message.created_at,
-                           text=message.content,
-                           attachments=message.attachments)
+            fax_img = await send_fax(printer,
+                                     user=message.author,
+                                     ts=message.created_at,
+                                     text=message.content,
+                                     attachments=message.attachments)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             print(f"[{timestamp}] Received fax DM from {message.author.name}")
             await message.add_reaction('✅')
+            with BytesIO() as fax_stream:
+                fax_img = convert_fax_to_preview(fax_img, ts=arrow.now().datetime)
+                fax_img.save(fax_stream, "PNG")
+                fax_stream.seek(0)
+                discord_img = discord.File(fp=fax_stream, filename="fax.png")
+                await message.channel.send(file=discord_img)
         except Exception as e:
             await message.add_reaction('❌')
             raise e

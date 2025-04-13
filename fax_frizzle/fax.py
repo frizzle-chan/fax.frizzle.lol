@@ -1,14 +1,14 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime
-import re
-from typing import List, Optional, Union
+from typing import List
 
-from PIL import Image
 import arrow
-from discord import Attachment, Member, User
+from PIL import Image
 
 # ASCII only
 _printable_pattern = re.compile(r'[^\x00-\x7F]+', flags=re.UNICODE)
+
 
 @dataclass
 class Fax:
@@ -36,4 +36,3 @@ class Fax:
         Return the text with non-ASCII characters replaced with underscores.
         """
         return _printable_pattern.sub('_', self.text)
-    
