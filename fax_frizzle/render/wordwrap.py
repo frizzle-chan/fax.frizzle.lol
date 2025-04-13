@@ -6,9 +6,8 @@ from PIL import ImageFont
 
 
 def wordwrap(font: ImageFont.FreeTypeFont, width: int, text: str) -> str:
-    raw_lines = text.splitlines()
     out_lines: List[str] = []
-    for raw_line in raw_lines:
+    for raw_line in text.splitlines():
         if font.getlength(raw_line) <= width:
             out_lines.append(raw_line)
             continue
