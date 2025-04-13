@@ -13,8 +13,8 @@ from fax_frizzle.fax import Fax
 from fax_frizzle.render.wordwrap import wordwrap
 
 _fsize = 16
-font_meta = ImageFont.truetype('unifontex.ttf', _fsize // 2)
-font_body = ImageFont.truetype('unifontex.ttf', _fsize)
+font_meta = ImageFont.truetype('unifontex.ttf', _fsize)
+font_body = ImageFont.truetype('unifontex.ttf', _fsize * 2)
 font_title = ImageFont.truetype('unifontex.ttf', _fsize * 2)
 
 gr = 1.618  # Golden ratio
@@ -74,8 +74,8 @@ def body_text_tile(width: int, text: str, font: ImageFont.FreeTypeFont, **kwargs
 def render_fax(fax: Fax, width: int) -> Image.Image:
     v_padding = int(width // (gr * 3))
 
-    if len(fax.text) > 54 or "\n" in fax.text:
-        body = body_text_tile(width, fax.text, font_body)
+    if len(fax.text) > 30 or "\n" in fax.text:
+        body = body_text_tile(width, fax.text, font_title)
     else:
         body = centered_text_tile(width, fax.text, font_body)
 
@@ -84,7 +84,7 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
         make_avatar_tile(width, fax.user_avatar),
         int(v_padding // 10),
         centered_text_tile(width, fax.user_name, font_title),
-        centered_text_tile(width, fax.human_ts, font_body),
+        centered_text_tile(width, fax.human_ts, font_meta),
         int(v_padding // 4),
         body,
     ]
@@ -115,8 +115,8 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
 
 def sent_to_printer_badge(ts: datetime) -> Image.Image:
     w = 275
-    stp_tile = centered_text_tile(w, "Sent to printer", font_body)
-    ts_tile = centered_text_tile(w, arrow.get(ts).format(arrow.FORMAT_RSS), font_body)
+    stp_tile = centered_text_tile(w, "Sent to printer", font_meta)
+    ts_tile = centered_text_tile(w, arrow.get(ts).format(arrow.FORMAT_RSS), font_meta)
     img = Image.new('RGB', (w, stp_tile.height + ts_tile.height + 8), color=(255, 255, 255))
     img.paste(stp_tile, (0, 0))
     img.paste(ts_tile, (0, stp_tile.height))
