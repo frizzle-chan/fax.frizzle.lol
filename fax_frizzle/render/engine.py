@@ -115,8 +115,8 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
 
 def sent_to_printer_badge(ts: datetime) -> Image.Image:
     w = 275
-    stp_tile = centered_text_tile(w, "Sent to printer", font_body)
-    ts_tile = centered_text_tile(w, arrow.get(ts).format(arrow.FORMAT_RSS), font_body)
+    stp_tile = centered_text_tile(w, "Sent to printer", font_meta)
+    ts_tile = centered_text_tile(w, arrow.get(ts).format(arrow.FORMAT_RSS), font_meta)
     img = Image.new('RGB', (w, stp_tile.height + ts_tile.height + 8), color=(255, 255, 255))
     img.paste(stp_tile, (0, 0))
     img.paste(ts_tile, (0, stp_tile.height))
