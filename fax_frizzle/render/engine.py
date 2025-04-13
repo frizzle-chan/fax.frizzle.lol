@@ -13,8 +13,8 @@ from fax_frizzle.fax import Fax
 from fax_frizzle.render.wordwrap import wordwrap
 
 _fsize = 16
-font_meta = ImageFont.truetype('unifontex.ttf', _fsize // 2)
-font_body = ImageFont.truetype('unifontex.ttf', _fsize)
+font_meta = ImageFont.truetype('unifontex.ttf', _fsize)
+font_body = ImageFont.truetype('unifontex.ttf', _fsize * 2)
 font_title = ImageFont.truetype('unifontex.ttf', _fsize * 2)
 
 gr = 1.618  # Golden ratio
@@ -74,8 +74,8 @@ def body_text_tile(width: int, text: str, font: ImageFont.FreeTypeFont, **kwargs
 def render_fax(fax: Fax, width: int) -> Image.Image:
     v_padding = int(width // (gr * 3))
 
-    if len(fax.text) > 54 or "\n" in fax.text:
-        body = body_text_tile(width, fax.text, font_body)
+    if len(fax.text) > 30 or "\n" in fax.text:
+        body = body_text_tile(width, fax.text, font_title)
     else:
         body = centered_text_tile(width, fax.text, font_body)
 
@@ -84,7 +84,7 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
         make_avatar_tile(width, fax.user_avatar),
         int(v_padding // 10),
         centered_text_tile(width, fax.user_name, font_title),
-        centered_text_tile(width, fax.human_ts, font_body),
+        centered_text_tile(width, fax.human_ts, font_meta),
         int(v_padding // 4),
         body,
     ]
