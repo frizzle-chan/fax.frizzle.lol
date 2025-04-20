@@ -8,8 +8,11 @@ Requires=docker.service
 TimeoutStartSec=0
 Restart=always
 ExecStartPre=/usr/bin/docker pull ghcr.io/frizzle-chan/fax.frizzle.lol:main
+ExecStartPre=/usr/bin/sh -c '/usr/bin/docker stop fax.frizzle.lol || true'
 ExecStart=/usr/bin/docker run --rm --name fax.frizzle.lol \
 --env-file=/etc/fax.frizzle.lol/.env \
+-v /etc/timezone:/etc/timezone:ro \
+-v /etc/localtime:/etc/localtime:ro \
 ghcr.io/frizzle-chan/fax.frizzle.lol:main
 
 [Install]
