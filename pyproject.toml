@@ -31,7 +31,7 @@ isort = "^6.0.1"
 flake8-bugbear = "^24.12.12"
 mypy = "^1.15.0"
 types-requests = "^2.32.0.20250328"
-types-cachetools = "^5.5.0.20240820"
+types-cachetools = "^6.0.0.20250525"
 pytest = "^8.3.5"
 pytest-regressions = {extras = ["image"], version = "^2.7.0"}
 
