@@ -1,4 +1,4 @@
-FROM docker.io/python:3.13.2-bookworm AS base
+FROM docker.io/python:3.13.5-bookworm AS base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
