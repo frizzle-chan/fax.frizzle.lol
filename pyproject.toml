@@ -33,7 +33,7 @@ mypy = "^1.15.0"
 types-requests = "^2.32.0.20250328"
 types-cachetools = "^5.5.0.20240820"
 pytest = "^8.3.5"
-pytest-regressions = {extras = ["image"], version = "^2.7.0"}
+pytest-regressions = {extras = ["image"], version = "^2.8.2"}
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
