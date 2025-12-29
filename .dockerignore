@@ -3,7 +3,5 @@
 !fax_frizzle
 !fax_frizzle/**/*
 !bot.py
-!poetry.lock
+!uv.lock
 !pyproject.toml
-
-!.devcontainer/starship.toml

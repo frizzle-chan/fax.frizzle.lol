@@ -1,24 +1,42 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
 {
-  "build": {
-    "dockerfile": "../Dockerfile",
-    "target": "development"
-  },
-  "mounts": [
-    "source=/etc/timezone,target=/etc/timezone,type=bind,readonly",
-    "source=/etc/localtime,target=/etc/localtime,type=bind,readonly"
-  ],
-  "features": {
-    "ghcr.io/devcontainers-extra/features/poetry:2": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "ms-python.isort",
-        "ms-python.autopep8",
-        "github.vscode-github-actions"
-      ]
-    }
-  }
+	"name": "fax.frizzle.lol",
+	"build": {
+		// Sets the run context to one level up instead of the .devcontainer folder.
+		"context": "..",
+		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
+		"dockerfile": "../Dockerfile",
+	},
+
+	// More info: https://aka.ms/dev-containers-non-root.
+	"remoteUser": "fax-frizzle",
+	"containerEnv": {
+		"CLAUDE_CONFIG_DIR": "${containerWorkspaceFolder}/.claude-user"
+	},
+	"initializeCommand": "echo TZ=$(cat /etc/timezone 2>/dev/null || timedatectl show --va -p Timezone) > .devcontainer/.tz.env",
+	"runArgs": ["--env-file", ".devcontainer/.tz.env"],
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"Anthropic.claude-code",
+				"ms-python.python",
+				"charliermarsh.ruff",
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"GitHub.vscode-pull-request-github"
+			]
+		}
+	},
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Uncomment the next line to run commands after the container is created.
+	"postCreateCommand": {
+		// "cc": "curl -fsSL https://claude.ai/install.sh | bash",
+		"lefthook": "uv run lefthook install",
+		"uv": "uv sync --locked"
+	}
 }

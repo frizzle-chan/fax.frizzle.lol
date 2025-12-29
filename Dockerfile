@@ -1,71 +1,66 @@
-FROM docker.io/python:3.13.2-bookworm AS base
-
+FROM python:3.14-trixie AS production
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+LABEL org.opencontainers.image.source=https://github.com/frizzle-chan/fax.frizzle.lol
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN mkdir -p /usr/share/fonts/truetype/unifontex \
  && curl -sSL \
-        -o /usr/share/fonts/truetype/unifontex/unifontex.ttf \
-        https://github.com/stgiga/UnifontEX/releases/download/15.1jan23morePona/UnifontExMono.ttf
+      -o /usr/share/fonts/truetype/unifontex/unifontex.ttf \
+      https://github.com/stgiga/UnifontEX/releases/download/15.1jan23morePona/UnifontExMono.ttf
 
 # Create a non-root user named fax and switch to it
-RUN useradd -ms /bin/bash frizzle
-USER frizzle
+# Create the user
+RUN groupadd --gid 1000 fax-frizzle \
+ && useradd --uid 1000 --gid 1000 -m fax-frizzle --shell /bin/bash \
+ && mkdir -p /app \
+ && chown fax-frizzle:fax-frizzle /app
+
+USER fax-frizzle
 
 WORKDIR /app
 
-ENV PYTHONFAULTHANDLER=1 \
+ENV UV_NO_DEV=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_CACHE_DIR=/home/fax-frizzle/.cache/uv/ \
+    PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=random \
-    PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VERSION=2.1.2 \
-    POETRY_VIRTUALENVS_CREATE=false \
-    PATH=/home/frizzle/.local/bin:$PATH
+    PATH=/app/.venv/bin:/home/fax-frizzle/.local/bin:$PATH
 
-# install poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-
-COPY pyproject.toml poetry.lock ./
-RUN poetry install --only main
-
-FROM base AS production
-
-LABEL org.opencontainers.image.source=https://github.com/frizzle-chan/fax.frizzle.lol
+# Install dependencies
+RUN --mount=type=cache,target=/home/fax-frizzle/.cache/uv,uid=1000,gid=1000 \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project
 
 COPY . .
 
-ENTRYPOINT [ "python", "bot.py" ]
+RUN --mount=type=cache,target=/home/fax-frizzle/.cache/uv,uid=1000,gid=1000 \
+    uv sync --locked
 
-FROM base AS development
+CMD [ "python", "bot.py" ]
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+FROM production AS devcontainer
 
-# hadolint ignore=DL3002
+ENV UV_NO_DEV=0 \
+    UV_COMPILE_BYTECODE=0 \
+    UV_NO_CACHE=0
+
 USER root
 
-ENV PATH=/home/frizzle/.local/bin:$PATH
-
-# Install gh, vim
-# hadolint ignore=DL3008,DL3015,SC2016
-RUN curl -sS -o "/etc/apt/keyrings/githubcli-archive-keyring.gpg" https://cli.github.com/packages/githubcli-archive-keyring.gpg \
- && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
- && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
- && apt-get update \
- && apt-get install -y \
-        gh \
-        vim \
+# install stuff
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+       curl \
+       git \
+       just \
+       procps \
+       sqlite3 \
+       vim \
+       zsh \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && chsh -s /bin/zsh fax-frizzle
 
-# Configure shell
-COPY .devcontainer/starship.toml /root/.config/starship.toml
-# hadolint ignore=SC2016
-RUN curl -sS -o /tmp/install-starship.sh https://starship.rs/install.sh \
- && sh /tmp/install-starship.sh --yes \
- && rm /tmp/install-starship.sh \
- && echo 'eval "$(starship init bash)"' >> /root/.bashrc \
- && echo 'export EDITOR=vim' >> /root/.bashrc \
- && echo 'set -o vi' >> /root/.bashrc
-
-RUN poetry install
+USER fax-frizzle
