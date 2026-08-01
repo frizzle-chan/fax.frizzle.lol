@@ -1,0 +1,46 @@
+# Git hooks, managed by lefthook. Install with `uv run lefthook install`
+# (the devcontainer's postCreateCommand does this for you).
+#
+# Refer for explanation to the following link:
+#   https://lefthook.dev/configuration/
+
+pre-commit:
+  jobs:
+    - name: autopep8
+      glob: "*.py"
+      run: uv run autopep8 -i {staged_files}
+      stage_fixed: true
+
+    - name: isort
+      glob: "*.py"
+      run: uv run isort --filter-files {staged_files}
+      stage_fixed: true
+
+    - name: flake8
+      glob: "*.py"
+      run: uv run flake8 {staged_files}
+
+    - name: mypy
+      glob: "*.py"
+      run: uv run mypy {staged_files}
+
+    - name: hadolint
+      glob: "Dockerfile"
+      run: ./bin/hadolint {staged_files}
+
+    - name: pytest
+      exclude:
+        - "*.md"
+        - "LICENSE"
+        - ".gitignore"
+        - ".dockerignore"
+        - "Dockerfile"
+        - ".editorconfig"
+        - ".env.example"
+        - ".flake8"
+        - ".github/**"
+        - ".devcontainer/**"
+        - ".vscode/**"
+        - "deploy/**"
+        - "lefthook.yml"
+      run: uv run pytest

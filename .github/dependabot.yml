@@ -2,7 +2,8 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # "pip" tracked poetry.lock; uv.lock needs the native uv ecosystem.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"

@@ -3,7 +3,13 @@
 !fax_frizzle
 !fax_frizzle/**/*
 !bot.py
-!poetry.lock
+!uv.lock
 !pyproject.toml
 
-!.devcontainer/starship.toml
+# Tests are bind-mounted at run time, never baked in.
+fax_frizzle/**/*_test.py
+fax_frizzle/**/*_test
+fax_frizzle/**/*_test/**
+
+# Host-compiled bytecode a local build would otherwise pick up.
+**/__pycache__

@@ -2,42 +2,53 @@
 name = "fax-frizzle-lol"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "frizzle-chan"}
-]
-license = {text = "MIT"}
-readme = "README.md"
+authors = [{ name = "frizzle-chan" }]
 requires-python = ">=3.13"
+readme = "README.md"
+license = { text = "MIT" }
 dependencies = [
+    # A transitive dep of discord-py, but the HTTP source imports it directly,
+    # so declare it rather than rely on discord-py never dropping it.
+    "aiohttp (>=3.14.3,<4.0.0)",
     "discord-py (>=2.5.2,<3.0.0)",
     "python-dotenv (>=1.0.1,<2.0.0)",
     "cachetools (>=5.5.2,<6.0.0)",
     "pillow (>=11.1.0,<12.0.0)",
     "python-escpos (>=3.1,<4.0)",
     "requests (>=2.32.3,<3.0.0)",
-    "arrow (>=1.3.0,<2.0.0)"
+    "arrow (>=1.3.0,<2.0.0)",
 ]
 
-[tool.poetry]
-packages = [{include = "fax_frizzle"}]
-package-mode = false
+[dependency-groups]
+dev = [
+    "flake8>=7.2.0,<8",
+    "autopep8>=2.3.2,<3",
+    "isort>=6.0.1,<7",
+    "flake8-bugbear>=24.12.12,<25",
+    "mypy>=1.15.0,<2",
+    "types-requests>=2.32.0.20250328,<3",
+    "types-cachetools>=5.5.0.20240820,<6",
+    "pytest>=8.3.5,<9",
+    "pytest-regressions[image]>=2.7.0,<3",
+    "lefthook>=1.11.5",
+]
 
+# The bot is run from a checkout, never built or installed as a distribution
+# (this is poetry's `package-mode = false`). No build backend is needed, and
+# the [tool.hatch.build.targets.*] include rules that came with it were dead
+# config — uv never invokes a backend for a non-package project.
+[tool.uv]
+package = false
 
-[tool.poetry.group.dev.dependencies]
-flake8 = "^7.2.0"
-autopep8 = "^2.3.2"
-pre-commit = "^4.2.0"
-isort = "^6.0.1"
-flake8-bugbear = "^24.12.12"
-mypy = "^1.15.0"
-types-requests = "^2.32.0.20250328"
-types-cachetools = "^5.5.0.20240820"
-pytest = "^8.3.5"
-pytest-regressions = {extras = ["image"], version = "^2.7.0"}
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.pytest.ini_options]
+# The smoke suite launches a subprocess and a fake printer, so it is slow and it
+# needs a checkout to run from. `bin/test`, the pre-commit hook, and the CI test
+# job all get the fast suite; `bin/smoke-test` passes -m smoke, which wins over
+# this because the last -m on the command line is the one that counts.
+addopts = "-m 'not smoke'"
+markers = [
+    "smoke: end-to-end test that launches the app against a fake printer",
+]
 
 [[tool.mypy.overrides]]
 module = ["escpos.*"]

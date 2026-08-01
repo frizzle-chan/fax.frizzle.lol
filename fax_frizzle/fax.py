@@ -1,7 +1,7 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import arrow
 from PIL import Image
@@ -14,15 +14,17 @@ _printable_pattern = re.compile(r'[^\x00-\x7F]+', flags=re.UNICODE)
 class Fax:
     """
     A fax object that contains the fax number, the text to be sent, and the attachments.
+
+    Deliberately knows nothing about where it came from -- Discord, HTTP, and
+    (soon) email all build one of these and hand it to the FaxService.
     """
     user_name: str
-    user_avatar: Image.Image
     text: str
     ts: datetime
-    image_attachments: List[Image.Image]
-
-    def __post_init__(self):
-        pass
+    # Optional so a source with no avatar doesn't have to reach for the
+    # placeholder image itself; the renderer supplies the fallback.
+    user_avatar: Optional[Image.Image] = None
+    image_attachments: List[Image.Image] = field(default_factory=list)
 
     @property
     def human_ts(self) -> str:
