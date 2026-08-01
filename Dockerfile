@@ -65,10 +65,3 @@ RUN apt-get update \
  && chsh -s /bin/zsh fax-frizzle
 
 USER fax-frizzle
-
-# Bake the dev group (pytest et al.) in, so CI can run the suite straight out of
-# the image. The devcontainer itself bind-mounts the workspace over /app, which
-# hides this venv — hence postCreateCommand still rebuilding one. CI mounts the
-# checkout at /src instead, leaving /app/.venv on PATH intact.
-RUN --mount=type=cache,target=/home/fax-frizzle/.cache/uv,uid=1000,gid=1000 \
-    uv sync --locked
