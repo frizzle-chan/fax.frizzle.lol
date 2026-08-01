@@ -47,19 +47,35 @@ jobs:
 
       # Single-arch on purpose: the runner can only execute what it loads, and
       # QEMU-emulated arm64 would just re-run the same pure-Python code slowly.
-      - name: Build the test image
+      - name: Build the devcontainer image
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: .
-          target: test
+          target: devcontainer
           platforms: linux/amd64
           load: true
-          tags: fax-frizzle:test
+          tags: fax-frizzle:devcontainer
           cache-from: type=gha,scope=test
           cache-to: type=gha,scope=test,mode=max
 
-      - name: Run the test suite inside the image
-        run: docker run --rm fax-frizzle:test pytest
+      # Mounted at /src, not /app: the image keeps its venv at /app/.venv with
+      # PATH pointing into it, so a bind mount over /app would hide every
+      # installed package (the same trap devcontainer.json documents). uv's
+      # `package = false` means fax_frizzle is imported from the working
+      # directory rather than installed, so /src is all pytest needs.
+      #
+      # --user keeps anything pytest writes — .pytest_cache, and the
+      # .obtained/.diff PNGs a failed image regression leaves behind — owned by
+      # the runner instead of the image's uid 1000.
+      - name: Run the test suite against the checkout
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/src" \
+            --workdir /src \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            fax-frizzle:devcontainer \
+            pytest
 
   build-and-push:
     runs-on: ubuntu-latest

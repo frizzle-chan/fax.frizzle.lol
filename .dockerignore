@@ -5,3 +5,13 @@
 !bot.py
 !uv.lock
 !pyproject.toml
+
+# Tests and their regression baselines are bind-mounted at run time (see the
+# test job in .github/workflows/docker-build-push.yaml), never baked in.
+fax_frizzle/**/*_test.py
+fax_frizzle/**/*_test
+fax_frizzle/**/*_test/**
+
+# A local build would otherwise bake in whatever bytecode the host left behind,
+# compiled by the host's interpreter rather than the image's.
+**/__pycache__
