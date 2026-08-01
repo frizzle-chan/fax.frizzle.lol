@@ -1,0 +1,11 @@
+#!/bin/bash
+# Sync dependencies, then run the suite. Only meaningful inside the container:
+# the render tests compare against baselines drawn with the UnifontEX the
+# Dockerfile installs system-wide, so a host without it fails at import with
+# "OSError: cannot open resource".
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+uv sync --locked
+uv run pytest "$@"
