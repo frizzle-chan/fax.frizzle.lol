@@ -6,8 +6,7 @@ import arrow
 from PIL import Image
 
 from fax_frizzle.fax import Fax
-from fax_frizzle.faxes import convert_fax_to_preview
-from fax_frizzle.render.engine import render_fax
+from fax_frizzle.render.engine import convert_fax_to_preview, render_fax
 
 # Get the directory where the current file is located
 current_dir = Path(os.path.dirname(os.path.abspath(__file__)))

@@ -11,6 +11,8 @@ on:
       - '**/*.py'
       # Regression baselines aren't .py.
       - 'fax_frizzle/**'
+      # bin/test and bin/smoke-test have no extension.
+      - 'bin/**'
   push:
     branches:
       - main
@@ -26,6 +28,8 @@ on:
       - '**/*.py'
       # Regression baselines aren't .py.
       - 'fax_frizzle/**'
+      # bin/test and bin/smoke-test have no extension.
+      - 'bin/**'
   workflow_dispatch:
 
 env:
@@ -70,10 +74,48 @@ jobs:
             fax-frizzle:devcontainer \
             ./bin/test
 
+  smoke:
+    runs-on: ubuntu-latest
+    # Runs after the unit suite: no point launching the app if rendering is broken.
+    needs: test
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      # Read-only against the test job's cache: two jobs writing one scope is the
+      # clobbering the build-and-push comment below warns about.
+      - name: Build the devcontainer image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .
+          target: devcontainer
+          platforms: linux/amd64
+          load: true
+          tags: fax-frizzle:devcontainer
+          cache-from: type=gha,scope=test
+
+      # The fake printer and the app subprocess both live on 127.0.0.1 inside
+      # this one container, so there is no docker networking involved.
+      - name: Run the smoke suite against the checkout
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/app" \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env UV_CACHE_DIR=/tmp/uv-cache \
+            fax-frizzle:devcontainer \
+            ./bin/smoke-test
+
   build-and-push:
     runs-on: ubuntu-latest
     # Don't pay for the emulated arm64 build if the tests already failed.
-    needs: test
+    needs: [test, smoke]
     permissions:
       contents: read
       packages: write

@@ -7,6 +7,9 @@ requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
+    # A transitive dep of discord-py, but the HTTP source imports it directly,
+    # so declare it rather than rely on discord-py never dropping it.
+    "aiohttp (>=3.14.3,<4.0.0)",
     "discord-py (>=2.5.2,<3.0.0)",
     "python-dotenv (>=1.0.1,<2.0.0)",
     "cachetools (>=5.5.2,<6.0.0)",
@@ -36,6 +39,16 @@ dev = [
 # config — uv never invokes a backend for a non-package project.
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+# The smoke suite launches a subprocess and a fake printer, so it is slow and it
+# needs a checkout to run from. `bin/test`, the pre-commit hook, and the CI test
+# job all get the fast suite; `bin/smoke-test` passes -m smoke, which wins over
+# this because the last -m on the command line is the one that counts.
+addopts = "-m 'not smoke'"
+markers = [
+    "smoke: end-to-end test that launches the app against a fake printer",
+]
 
 [[tool.mypy.overrides]]
 module = ["escpos.*"]
