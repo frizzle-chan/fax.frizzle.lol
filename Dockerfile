@@ -41,6 +41,19 @@ RUN --mount=type=cache,target=/home/fax-frizzle/.cache/uv,uid=1000,gid=1000 \
 
 CMD [ "python", "bot.py" ]
 
+# The suite is a set of pytest-regressions image comparisons, so it has to run
+# against the same UnifontEX the production stage installs — a host-installed
+# font would render different pixels and fail every baseline.
+FROM production AS test
+
+# production builds with UV_NO_DEV=1, so pytest et al. are absent from its venv.
+ENV UV_NO_DEV=0
+
+RUN --mount=type=cache,target=/home/fax-frizzle/.cache/uv,uid=1000,gid=1000 \
+    uv sync --locked
+
+CMD [ "pytest" ]
+
 FROM production AS devcontainer
 
 ENV UV_NO_DEV=0 \

@@ -9,6 +9,8 @@ on:
       - uv.lock
       - pyproject.toml
       - '**/*.py'
+      # Non-.py test fixtures and image-regression baselines live here.
+      - 'fax_frizzle/**'
   push:
     branches:
       - main
@@ -22,6 +24,8 @@ on:
       - uv.lock
       - pyproject.toml
       - '**/*.py'
+      # Non-.py test fixtures and image-regression baselines live here.
+      - 'fax_frizzle/**'
   workflow_dispatch:
 
 env:
@@ -29,8 +33,39 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      # Single-arch on purpose: the runner can only execute what it loads, and
+      # QEMU-emulated arm64 would just re-run the same pure-Python code slowly.
+      - name: Build the test image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .
+          target: test
+          platforms: linux/amd64
+          load: true
+          tags: fax-frizzle:test
+          cache-from: type=gha,scope=test
+          cache-to: type=gha,scope=test,mode=max
+
+      - name: Run the test suite inside the image
+        run: docker run --rm fax-frizzle:test pytest
+
   build-and-push:
     runs-on: ubuntu-latest
+    # Don't pay for the emulated arm64 build (or publish a tag) if the tests
+    # already failed on amd64.
+    needs: test
     permissions:
       contents: read
       packages: write
@@ -76,5 +111,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Separate scopes so the two jobs don't overwrite each other's cache;
+          # reading the test scope reuses the amd64 layers it just built.
+          cache-from: |
+            type=gha,scope=build
+            type=gha,scope=test
+          cache-to: type=gha,scope=build,mode=max
