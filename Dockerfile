@@ -2,14 +2,8 @@ FROM docker.io/library/python:3.14.5-trixie AS production
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 LABEL org.opencontainers.image.source=https://github.com/frizzle-chan/fax.frizzle.lol
 
-ARG UV_VERSION=0.9.18
-
-# The image is built for linux/arm/v7 as well as amd64/arm64, and
-# ghcr.io/astral-sh/uv only publishes amd64 and arm64 — a `COPY --from` of it
-# fails the armv7 leg. The standalone installer does ship an armv7 binary, so
-# install through it and pin the version for reproducible `uv sync --locked`.
-RUN curl -LsSf "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-installer.sh" \
-      | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh
+# Pinned, not :latest — `uv sync --locked` is only reproducible if uv is too.
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
 
 RUN mkdir -p /usr/share/fonts/truetype/unifontex \
  && curl -sSL \
