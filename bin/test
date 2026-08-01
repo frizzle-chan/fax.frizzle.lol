@@ -1,12 +1,8 @@
 #!/bin/bash
-# Sync dependencies, then run the suite.
-#
-# The render tests are pytest-regressions image comparisons against baselines
-# generated with the UnifontEX that the Dockerfile installs system-wide, and
-# engine.py loads it by bare name ('unifontex.ttf'). So this is only meaningful
-# inside the container — on a host without that font it fails at import with
-# "OSError: cannot open resource". CI runs it via the devcontainer image with
-# the checkout bind-mounted over /app; see .github/workflows/docker-build-push.yaml.
+# Sync dependencies, then run the suite. Only meaningful inside the container:
+# the render tests compare against baselines drawn with the UnifontEX the
+# Dockerfile installs system-wide, so a host without it fails at import with
+# "OSError: cannot open resource".
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
