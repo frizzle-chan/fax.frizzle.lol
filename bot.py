@@ -8,7 +8,7 @@ needs no Discord credentials at all.
 import asyncio
 import os
 import sys
-from typing import Awaitable, Dict, List
+from typing import Awaitable, Dict, List, NoReturn
 
 from dotenv import load_dotenv
 from escpos.printer import Network
@@ -33,10 +33,26 @@ SOURCE_VARS: Dict[str, Dict[str, str]] = {
 }
 
 
-def _die(*lines: str) -> None:
+def _die(*lines: str) -> NoReturn:
     for line in lines:
         print(line)
     sys.exit(1)
+
+
+def int_env(var: str, default: int) -> int:
+    """Read an int from the environment, failing the same way missing vars do.
+
+    A set-but-empty var (`PRINTER_PORT=` in a .env) skips the default, so
+    without this a blank line in a config file is a raw ValueError traceback
+    instead of a sentence telling you which variable is wrong.
+    """
+    raw = os.getenv(var)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        _die(f"Error: {var} must be a whole number, got {raw!r}")
 
 
 def selected_sources() -> List[str]:
@@ -75,7 +91,7 @@ def build_tasks(service: FaxService, names: List[str]) -> List[Awaitable[None]]:
             tasks.append(http_source.run(service,
                                          token=os.getenv('FAX_HTTP_TOKEN', ''),
                                          host=os.getenv('FAX_HTTP_HOST', '127.0.0.1'),
-                                         port=int(os.getenv('FAX_HTTP_PORT', '8080'))))
+                                         port=int_env('FAX_HTTP_PORT', 8080)))
     return tasks
 
 
@@ -85,7 +101,10 @@ async def main() -> None:
 
     printer = Network(
         host=os.getenv('PRINTER_HOST', ''),
-        port=int(os.getenv('PRINTER_PORT', '9100')),
+        port=int_env('PRINTER_PORT', 9100),
+        # escpos defaults to 60s. That is a long time to hold a fax hostage when
+        # the printer is off, and it's the window the smoke test shortens.
+        timeout=int_env('PRINTER_TIMEOUT', 60),
         profile=os.getenv('PRINTER_PROFILE', ''))
 
     # One service shared by every source: its lock is the only thing serialising

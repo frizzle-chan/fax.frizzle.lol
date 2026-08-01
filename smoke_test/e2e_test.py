@@ -10,6 +10,8 @@ import math
 import os
 import subprocess
 import sys
+import threading
+import time
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
@@ -20,7 +22,7 @@ import requests
 from PIL import Image
 
 from smoke_test import escpos_stream
-from smoke_test.fake_printer import FakePrinter, free_port
+from smoke_test.fake_printer import FakePrinter, JammedPrinter, free_port
 
 pytestmark = pytest.mark.smoke
 
@@ -44,7 +46,10 @@ def png_b64(size=(64, 48), color=(0, 0, 0)) -> str:
 
 
 @contextmanager
-def running_app(printer_port: int, http_port: int, log_path: Path) -> Iterator[subprocess.Popen]:
+def running_app(printer_port: int,
+                http_port: int,
+                log_path: Path,
+                printer_timeout: int = 60) -> Iterator[subprocess.Popen]:
     """Run bot.py as a real subprocess, HTTP source only, no Discord token."""
     env = {
         **os.environ,
@@ -55,30 +60,33 @@ def running_app(printer_port: int, http_port: int, log_path: Path) -> Iterator[s
         'PRINTER_HOST': '127.0.0.1',
         'PRINTER_PORT': str(printer_port),
         'PRINTER_PROFILE': PRINTER_PROFILE,
+        'PRINTER_TIMEOUT': str(printer_timeout),
         'PYTHONUNBUFFERED': '1',
     }
     # Straight to a file rather than a PIPE: nobody is draining a pipe while we
     # poll for readiness, and a chatty failure would fill the buffer and wedge
     # the child (and then the CI job) forever.
-    with log_path.open('wb') as log:
-        proc = subprocess.Popen([sys.executable, 'bot.py'],
-                                cwd=REPO_ROOT,
-                                env=env,
-                                stdout=log,
-                                stderr=subprocess.STDOUT)
+    log = log_path.open('wb')
+    proc = subprocess.Popen([sys.executable, 'bot.py'],
+                            cwd=REPO_ROOT,
+                            env=env,
+                            stdout=log,
+                            stderr=subprocess.STDOUT)
+    try:
+        yield proc
+    finally:
+        proc.terminate()
         try:
-            yield proc
-        finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=10)
-
-    # pytest swallows this unless the test failed, in which case it's the only
-    # way to find out what the child thought it was doing.
-    print(f'--- bot.py output ---\n{log_path.read_text(errors="replace")}')
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=10)
+        log.close()
+        # Has to be in the finally: an assertion failure propagates out through
+        # the yield, so anything after the try block runs only when the test
+        # passed -- which is the one time nobody needs this. pytest captures it
+        # and shows it only on failure.
+        print(f'--- bot.py output ---\n{log_path.read_text(errors="replace")}')
 
 
 def wait_until_serving(proc: subprocess.Popen, base_url: str, log_path: Path) -> None:
@@ -179,3 +187,60 @@ def test_fax_posted_over_http_arrives_at_the_printer(app: str, printer: FakePrin
 
     # One fax, one connection: the fax was not printed twice or split in half.
     assert len(printer.jobs) == 1
+
+
+def test_healthz_still_answers_while_a_print_is_stuck(tmp_path: Path) -> None:
+    """A stuck printer must not take the whole process down with it.
+
+    Printing blocks: a TCP connect to something on the far end of somebody's
+    wifi. Run that on the event loop and a printer that's simply switched off
+    means /healthz stops answering at exactly the moment you want to ask it,
+    and the Discord gateway misses heartbeats and gets disconnected.
+    """
+    stuck_for = 15
+    with JammedPrinter() as jammed_printer:
+        http_port = free_port()
+        log_path = tmp_path / 'bot.log'
+        with running_app(jammed_printer.port, http_port, log_path,
+                         printer_timeout=stuck_for) as proc:
+            base_url = f'http://127.0.0.1:{http_port}'
+            wait_until_serving(proc, base_url, log_path)
+
+            def send_fax() -> None:
+                try:
+                    requests.post(f'{base_url}/fax',
+                                  json={'sender': 'stuck', 'text': 'anybody home'},
+                                  headers={'Authorization': f'Bearer {TOKEN}'},
+                                  timeout=stuck_for + REQUEST_TIMEOUT)
+                except requests.RequestException:
+                    pass  # This one is expected to fail; the point is elsewhere.
+
+            sender = threading.Thread(target=send_fax, daemon=True)
+            sender.start()
+            try:
+                # Long enough for the request to reach the connect and wedge
+                # there, short enough to still be inside the stuck window.
+                time.sleep(3)
+
+                started = time.monotonic()
+                try:
+                    response = requests.get(f'{base_url}/healthz', timeout=5)
+                except requests.RequestException as exc:
+                    pytest.fail(f'/healthz never answered while a print was '
+                                f'stuck, so the print is blocking the event '
+                                f'loop: {exc!r}')
+                elapsed = time.monotonic() - started
+
+                assert response.status_code == 200
+                assert elapsed < 2, (
+                    f'/healthz took {elapsed:.1f}s while a print was stuck; '
+                    'the print is blocking the event loop')
+
+                # Without this the test passes for the wrong reason: if the
+                # print had already finished there was never anything to block
+                # on, and /healthz being fast proves nothing.
+                assert sender.is_alive(), (
+                    'the print completed before /healthz was measured -- this '
+                    'test did not exercise a stuck printer at all')
+            finally:
+                sender.join(timeout=stuck_for + REQUEST_TIMEOUT)

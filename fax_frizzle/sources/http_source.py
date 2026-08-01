@@ -37,6 +37,9 @@ from fax_frizzle.service import FaxService
 MAX_BODY_BYTES = 8 * 1024 * 1024
 MAX_TEXT_CHARS = 4000
 MAX_IMAGES = 8
+# Generous enough for a phone photo, mean enough that a decompression bomb is
+# refused before Pillow allocates it.
+MAX_IMAGE_PIXELS = 50_000_000
 
 log = logging.getLogger(__name__)
 
@@ -56,9 +59,21 @@ def _decode_image(raw: Any, label: str) -> Image.Image:
         raise _bad_request(f'{label} is not valid base64')
     try:
         img = Image.open(BytesIO(data))
-        # Decode inside the try so a truncated or hostile payload fails here as a
-        # 400 rather than later as a 500 from the renderer.
+        # open() only reads the header, so the dimensions are known before
+        # anything is decoded. Pillow's own guard only fires at 2x its
+        # threshold; a picture half that size still decodes to gigabytes on a
+        # Raspberry Pi.
+        width, height = img.size
+        if width * height > MAX_IMAGE_PIXELS:
+            raise _bad_request(f'{label} is too large: {width}x{height}')
+        # Decode now so a truncated or hostile payload fails here as a 400
+        # rather than later as a 500 out of the renderer.
         img.load()
+    except Image.DecompressionBombError:
+        # Raised from open() as well as load(), and it subclasses plain
+        # Exception rather than OSError or ValueError, so it needs its own arm
+        # or it escapes as a 500.
+        raise _bad_request(f'{label} is a decompression bomb')
     except (UnidentifiedImageError, OSError, ValueError):
         raise _bad_request(f'{label} is not a readable image')
     return img
@@ -92,7 +107,10 @@ def parse_fax(payload: Any) -> Fax:
     if payload.get('avatar') is not None:
         avatar = _decode_image(payload['avatar'], 'avatar')
 
-    raw_images = payload.get('images') or []
+    # Not `or []`: that would quietly wave through a falsy non-list like 0 or "".
+    raw_images = payload.get('images')
+    if raw_images is None:
+        raw_images = []
     if not isinstance(raw_images, list):
         raise _bad_request('images must be a list')
     if len(raw_images) > MAX_IMAGES:
@@ -108,9 +126,16 @@ def parse_fax(payload: Any) -> Fax:
                image_attachments=images)
 
 
-def _authorized(request: web.Request, token: str) -> bool:
-    scheme, _, presented = request.headers.get('Authorization', '').partition(' ')
-    return scheme.lower() == 'bearer' and hmac.compare_digest(presented, token)
+def authorized(header: str, token: str) -> bool:
+    """Check an Authorization header against the shared secret."""
+    scheme, _, presented = header.partition(' ')
+    if scheme.lower() != 'bearer':
+        return False
+    # Compare as bytes: compare_digest refuses str with non-ASCII in it, so a
+    # header like `Bearer tökén` would raise TypeError and come back as a 500
+    # with a traceback instead of a 401 -- and a non-ASCII token would break
+    # every request, including the valid ones.
+    return hmac.compare_digest(presented.encode('utf-8'), token.encode('utf-8'))
 
 
 def make_app(service: FaxService, token: str) -> web.Application:
@@ -120,7 +145,7 @@ def make_app(service: FaxService, token: str) -> web.Application:
         return web.json_response({'status': 'ok', 'width': service.width})
 
     async def post_fax(request: web.Request) -> web.Response:
-        if not _authorized(request, token):
+        if not authorized(request.headers.get('Authorization', ''), token):
             return web.json_response({'error': 'unauthorized'}, status=401)
 
         try:

@@ -37,19 +37,30 @@ class FaxService:
         """Printable width of the loaded printer profile, in pixels."""
         return int(self._printer.profile.profile_data["media"]["width"]["pixels"])
 
+    def _write_to_printer(self, rendered_fax: Image.Image) -> None:
+        try:
+            self._printer.open()
+            self._printer.image(rendered_fax)
+            self._printer.cut()
+        finally:
+            self._printer.close()
+
     async def print_fax(self, fax: Fax) -> Image.Image:
         """Render `fax`, print it, and return the image that went to the printer."""
         fax = replace(fax, image_attachments=[
             ImageOps.contain(img, MAX_ATTACHMENT_SIZE) for img in fax.image_attachments
         ])
-        rendered_fax = render_fax(fax=fax, width=self.width)
 
+        # Both of these block, and the printer is a socket with a 60s timeout on
+        # the far end of somebody's wifi. Run them off the event loop or one slow
+        # fax takes the whole process with it: /healthz stops answering exactly
+        # when the printer is unreachable, and the Discord gateway misses
+        # heartbeats and gets disconnected.
+        rendered_fax = await asyncio.to_thread(render_fax, fax=fax, width=self.width)
+
+        # The lock is still held across the print, so only one thread is ever
+        # touching the printer.
         async with self._lock:
-            try:
-                self._printer.open()
-                self._printer.image(rendered_fax)
-                self._printer.cut()
-            finally:
-                self._printer.close()
+            await asyncio.to_thread(self._write_to_printer, rendered_fax)
 
         return rendered_fax

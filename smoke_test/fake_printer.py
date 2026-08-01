@@ -84,6 +84,55 @@ class FakePrinter:
         self.stop()
 
 
+class JammedPrinter:
+    """A printer that never accepts anything, so connecting to it hangs.
+
+    Not a stall on the read side: the sender's socket buffer swallows ~1.5MB
+    before it blocks, and a fax is ~44KB, so a printer that accepts and then
+    goes quiet doesn't block the app at all. What does block is the connect --
+    which is also the real failure mode, `Network.open()` against a printer
+    that's off or off-wifi.
+
+    Filling the accept queue and never draining it gets there deterministically:
+    further SYNs are dropped and retried by the kernel, so connect() hangs
+    rather than being refused.
+    """
+
+    # More than the listen backlog, so the queue is definitely full.
+    _QUEUE_FILLERS = 8
+
+    def __init__(self, host: str = '127.0.0.1') -> None:
+        self._host = host
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._sock.bind((host, 0))
+        self._sock.listen(1)
+        self._held: List[socket.socket] = []
+
+    @property
+    def port(self) -> int:
+        return self._sock.getsockname()[1]
+
+    def __enter__(self) -> 'JammedPrinter':
+        for _ in range(self._QUEUE_FILLERS):
+            filler = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            filler.settimeout(1)
+            try:
+                filler.connect((self._host, self.port))
+            except OSError:
+                # Queue is full -- which is the point. Anyone connecting from
+                # here on hangs.
+                filler.close()
+                break
+            self._held.append(filler)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        for filler in self._held:
+            filler.close()
+        self._sock.close()
+
+
 def free_port(host: str = '127.0.0.1') -> int:
     """Pick a port nothing is listening on. Racy in theory, fine in a container."""
     sock: Optional[socket.socket] = None
