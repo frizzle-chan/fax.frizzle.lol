@@ -1,8 +1,15 @@
-FROM python:3.14-trixie AS production
+FROM docker.io/library/python:3.14.5-trixie AS production
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 LABEL org.opencontainers.image.source=https://github.com/frizzle-chan/fax.frizzle.lol
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ARG UV_VERSION=0.9.18
+
+# The image is built for linux/arm/v7 as well as amd64/arm64, and
+# ghcr.io/astral-sh/uv only publishes amd64 and arm64 — a `COPY --from` of it
+# fails the armv7 leg. The standalone installer does ship an armv7 binary, so
+# install through it and pin the version for reproducible `uv sync --locked`.
+RUN curl -LsSf "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-installer.sh" \
+      | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh
 
 RUN mkdir -p /usr/share/fonts/truetype/unifontex \
  && curl -sSL \
@@ -10,7 +17,6 @@ RUN mkdir -p /usr/share/fonts/truetype/unifontex \
       https://github.com/stgiga/UnifontEX/releases/download/15.1jan23morePona/UnifontExMono.ttf
 
 # Create a non-root user named fax and switch to it
-# Create the user
 RUN groupadd --gid 1000 fax-frizzle \
  && useradd --uid 1000 --gid 1000 -m fax-frizzle --shell /bin/bash \
  && mkdir -p /app \
@@ -45,7 +51,8 @@ FROM production AS devcontainer
 
 ENV UV_NO_DEV=0 \
     UV_COMPILE_BYTECODE=0 \
-    UV_NO_CACHE=0
+    UV_NO_CACHE=0 \
+    UV_LINK_MODE=copy
 
 USER root
 

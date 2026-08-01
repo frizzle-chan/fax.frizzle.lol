@@ -1,42 +1,46 @@
-# EXAMPLE USAGE:
+# Git hooks, managed by lefthook. Install with `uv run lefthook install`
+# (the devcontainer's postCreateCommand does this for you).
 #
-#   Refer for explanation to following link:
+# Refer for explanation to the following link:
 #   https://lefthook.dev/configuration/
-#
-# pre-push:
-#   jobs:
-#     - name: packages audit
-#       tags:
-#         - frontend
-#         - security
-#       run: yarn audit
-#
-#     - name: gems audit
-#       tags:
-#         - backend
-#         - security
-#       run: bundle audit
-#
-# pre-commit:
-#   parallel: true
-#   jobs:
-#     - run: yarn eslint {staged_files}
-#       glob: "*.{js,ts,jsx,tsx}"
-#
-#     - name: rubocop
-#       glob: "*.rb"
-#       exclude:
-#         - config/application.rb
-#         - config/routes.rb
-#       run: bundle exec rubocop --force-exclusion {all_files}
-#
-#     - name: govet
-#       files: git ls-files -m
-#       glob: "*.go"
-#       run: go vet {files}
-#
-#     - script: "hello.js"
-#       runner: node
-#
-#     - script: "hello.go"
-#       runner: go run
+
+pre-commit:
+  jobs:
+    - name: autopep8
+      glob: "*.py"
+      run: uv run autopep8 -i {staged_files}
+      stage_fixed: true
+
+    - name: isort
+      glob: "*.py"
+      run: uv run isort --filter-files {staged_files}
+      stage_fixed: true
+
+    - name: flake8
+      glob: "*.py"
+      run: uv run flake8 {staged_files}
+
+    - name: mypy
+      glob: "*.py"
+      run: uv run mypy {staged_files}
+
+    - name: hadolint
+      glob: "Dockerfile"
+      run: ./bin/hadolint {staged_files}
+
+    - name: pytest
+      exclude:
+        - "*.md"
+        - "LICENSE"
+        - ".gitignore"
+        - ".dockerignore"
+        - "Dockerfile"
+        - ".editorconfig"
+        - ".env.example"
+        - ".flake8"
+        - ".github/**"
+        - ".devcontainer/**"
+        - ".vscode/**"
+        - "deploy/**"
+        - "lefthook.yml"
+      run: uv run pytest

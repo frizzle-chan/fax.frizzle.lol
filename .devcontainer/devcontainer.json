@@ -7,14 +7,21 @@
 		"context": "..",
 		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
 		"dockerfile": "../Dockerfile",
+		"target": "devcontainer"
 	},
+
+	// The image puts /app/.venv/bin on PATH, so the workspace has to live at
+	// /app. Under the default mount (/workspaces/<repo>) `uv sync` would build
+	// a second venv there while PATH kept pointing at the image's.
+	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+	"workspaceFolder": "/app",
 
 	// More info: https://aka.ms/dev-containers-non-root.
 	"remoteUser": "fax-frizzle",
 	"containerEnv": {
 		"CLAUDE_CONFIG_DIR": "${containerWorkspaceFolder}/.claude-user"
 	},
-	"initializeCommand": "echo TZ=$(cat /etc/timezone 2>/dev/null || timedatectl show --va -p Timezone) > .devcontainer/.tz.env",
+	"initializeCommand": "echo TZ=$(cat /etc/timezone 2>/dev/null || timedatectl show --va -p Timezone 2>/dev/null) > .devcontainer/.tz.env",
 	"runArgs": ["--env-file", ".devcontainer/.tz.env"],
 	// Configure tool-specific properties.
 	"customizations": {
@@ -22,7 +29,11 @@
 			"extensions": [
 				"Anthropic.claude-code",
 				"ms-python.python",
-				"charliermarsh.ruff",
+				"ms-python.flake8",
+				"ms-python.isort",
+				"ms-python.autopep8",
+				"ms-python.mypy-type-checker",
+				"editorconfig.editorconfig",
 				"GitHub.copilot",
 				"GitHub.copilot-chat",
 				"GitHub.vscode-pull-request-github"
@@ -33,10 +44,9 @@
 	// "features": {},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
-	// Uncomment the next line to run commands after the container is created.
+	// Object-form postCreateCommand entries run in parallel, so the lefthook
+	// install has to be chained after the sync that provides it.
 	"postCreateCommand": {
-		// "cc": "curl -fsSL https://claude.ai/install.sh | bash",
-		"lefthook": "uv run lefthook install",
-		"uv": "uv sync --locked"
+		"uv": "rm -rf .venv && uv sync --locked && uv run lefthook install"
 	}
 }
