@@ -1,0 +1,13 @@
+#!/bin/bash
+# Sync dependencies, then run the end-to-end smoke suite: a real bot.py process
+# talking to a fake networked receipt printer. Like bin/test, this is only
+# meaningful inside the container -- the render path needs the UnifontEX that
+# the Dockerfile installs system-wide.
+#
+# -m smoke overrides the `-m 'not smoke'` addopts in pyproject.toml.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+uv sync --locked
+uv run pytest -m smoke -v "$@"

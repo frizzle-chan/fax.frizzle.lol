@@ -6,9 +6,13 @@ on:
       - .github/workflows/docker-build-push.yaml
       - Dockerfile
       - .dockerignore
-      - poetry.lock
+      - uv.lock
       - pyproject.toml
       - '**/*.py'
+      # Regression baselines aren't .py.
+      - 'fax_frizzle/**'
+      # bin/test and bin/smoke-test have no extension.
+      - 'bin/**'
   push:
     branches:
       - main
@@ -19,9 +23,13 @@ on:
       - .github/workflows/docker-build-push.yaml
       - Dockerfile
       - .dockerignore
-      - poetry.lock
+      - uv.lock
       - pyproject.toml
       - '**/*.py'
+      # Regression baselines aren't .py.
+      - 'fax_frizzle/**'
+      # bin/test and bin/smoke-test have no extension.
+      - 'bin/**'
   workflow_dispatch:
 
 env:
@@ -29,24 +37,102 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      # Single-arch: the runner can only execute the image it loads.
+      - name: Build the devcontainer image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .
+          target: devcontainer
+          platforms: linux/amd64
+          load: true
+          tags: fax-frizzle:devcontainer
+          cache-from: type=gha,scope=test
+          cache-to: type=gha,scope=test,mode=max
+
+      # Mounted over /app as devcontainer.json does, which hides the image's
+      # venv — hence bin/test syncing first. Runs as the runner's uid so that
+      # sync can write, with HOME and the uv cache moved off fax-frizzle's.
+      - name: Run the test suite against the checkout
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/app" \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env UV_CACHE_DIR=/tmp/uv-cache \
+            fax-frizzle:devcontainer \
+            ./bin/test
+
+  smoke:
+    runs-on: ubuntu-latest
+    # Runs after the unit suite: no point launching the app if rendering is broken.
+    needs: test
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      # Read-only against the test job's cache: two jobs writing one scope is the
+      # clobbering the build-and-push comment below warns about.
+      - name: Build the devcontainer image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .
+          target: devcontainer
+          platforms: linux/amd64
+          load: true
+          tags: fax-frizzle:devcontainer
+          cache-from: type=gha,scope=test
+
+      # The fake printer and the app subprocess both live on 127.0.0.1 inside
+      # this one container, so there is no docker networking involved.
+      - name: Run the smoke suite against the checkout
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/app" \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env UV_CACHE_DIR=/tmp/uv-cache \
+            fax-frizzle:devcontainer \
+            ./bin/smoke-test
+
   build-and-push:
     runs-on: ubuntu-latest
+    # Don't pay for the emulated arm64 build if the tests already failed.
+    needs: [test, smoke]
     permissions:
       contents: read
       packages: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up QEMU for multi-architecture builds
-        uses: docker/setup-qemu-action@3.6.0
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@3.10.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to the Container registry
-        uses: docker/login-action@3.4.0
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -54,7 +140,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@5.7.0
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -66,13 +152,17 @@ jobs:
             type=sha
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@6.15.0
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           target: production
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          # Deploy targets are x86 and a Raspberry Pi (arm64).
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Separate scopes so the jobs don't clobber each other's cache.
+          cache-from: |
+            type=gha,scope=build
+            type=gha,scope=test
+          cache-to: type=gha,scope=build,mode=max

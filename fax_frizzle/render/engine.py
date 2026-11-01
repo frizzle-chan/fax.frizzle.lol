@@ -2,8 +2,10 @@
 Image rendering engine for the fax service.
 """
 import math
+import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import List
 
 import arrow
@@ -18,6 +20,18 @@ font_body = ImageFont.truetype('unifontex.ttf', _fsize * 2)
 font_title = ImageFont.truetype('unifontex.ttf', _fsize * 2)
 
 gr = 1.618  # Golden ratio
+
+img_dir = Path(os.path.dirname(os.path.abspath(__file__))).parent / "img"
+
+
+def default_avatar() -> Image.Image:
+    """
+    Placeholder for a sender we have no picture of.
+
+    Opened fresh every call on purpose: make_avatar_tile thumbnails in place, so
+    a shared instance would shrink a little more with every fax.
+    """
+    return Image.open(img_dir / "question.png")
 
 
 def make_avatar_tile(width: int, avatar: Image.Image) -> Image.Image:
@@ -79,9 +93,11 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
     else:
         body = centered_text_tile(width, fax.text, font_body)
 
+    avatar = fax.user_avatar if fax.user_avatar is not None else default_avatar()
+
     tiles: List[int | Image.Image] = [
         v_padding,
-        make_avatar_tile(width, fax.user_avatar),
+        make_avatar_tile(width, avatar),
         int(v_padding // 10),
         centered_text_tile(width, fax.user_name, font_title),
         centered_text_tile(width, fax.human_ts, font_meta),
@@ -111,6 +127,18 @@ def render_fax(fax: Fax, width: int) -> Image.Image:
         scroll += tile
 
     return img
+
+
+def convert_fax_to_preview(fax_img: Image.Image, ts: datetime) -> Image.Image:
+    im = fax_img.copy()
+    # Pure black and white
+    im = im.convert("1")
+    preview_img = Image.new("RGB", (fax_img.width + 16, fax_img.height), (255, 255, 255))
+    preview_img.paste(im, (8, 0))
+    stp = sent_to_printer_badge(ts)
+    preview_img.paste(stp, (preview_img.width - stp.width - 8, 8))
+
+    return preview_img
 
 
 def sent_to_printer_badge(ts: datetime) -> Image.Image:

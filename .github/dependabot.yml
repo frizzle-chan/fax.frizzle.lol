@@ -2,15 +2,22 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # "pip" tracked poetry.lock; uv.lock needs the native uv ecosystem.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "monthly"
+    cooldown:
+      default-days: 7
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7

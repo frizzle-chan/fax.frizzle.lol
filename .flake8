@@ -1,2 +1,5 @@
 [flake8]
 ignore = E501
+# uv creates the virtualenv inside the project (poetry kept it outside), so
+# `flake8 .` would otherwise lint every installed dependency.
+extend-exclude = .venv
