@@ -39,6 +39,12 @@ dev = [
 # config — uv never invokes a backend for a non-package project.
 [tool.uv]
 package = false
+# Dependency cooldown: ignore releases newer than 7 days when resolving.
+# Matches the Dependabot cooldown and reduces exposure to compromised or
+# quickly-yanked releases.
+exclude-newer = "7 days"
+# 0.13.5 rejects certificate chains with the compromised eMudhra keys.
+required-version = ">=0.13.5"
 
 [tool.pytest.ini_options]
 # The smoke suite launches a subprocess and a fake printer, so it is slow and it

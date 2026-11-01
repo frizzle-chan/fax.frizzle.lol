@@ -3,7 +3,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 LABEL org.opencontainers.image.source=https://github.com/frizzle-chan/fax.frizzle.lol
 
 # Pinned, not :latest — `uv sync --locked` is only reproducible if uv is too.
-COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /uvx /bin/
 
 RUN mkdir -p /usr/share/fonts/truetype/unifontex \
  && curl -sSL \
